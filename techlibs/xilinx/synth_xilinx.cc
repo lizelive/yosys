@@ -450,6 +450,86 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 		}
 
+		if (check_label("map_memory")) {
+			std::string params = "";
+			if (help_mode) {
+				params = " [...]";
+			} else {
+				if (family == "xcv" || family == "xcve") {
+					params += " -lib +/xilinx/xilinx-lutram-xcv.txt";
+					params += " -D IS_VIRTEX";
+					params += " -lib +/xilinx/xilinx-bram-xcv.txt";
+				} else if (family == "xc2v" || family == "xc2vp") {
+					params += " -lib +/xilinx/xilinx-lutram-xcv.txt";
+					params += " -D IS_VIRTEX2";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+				} else if (family == "xc3s" || family == "xc3se") {
+					params += " -lib +/xilinx/xilinx-lutram-xcv.txt";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+				} else if (family == "xc3sa" || family == "xc3sda") {
+					params += " -lib +/xilinx/xilinx-lutram-xcv.txt";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+					params += " -D HAS_BE";
+				} else if (family == "xc6s") {
+					params += " -lib +/xilinx/xilinx-lutram-xc5v.txt";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+					params += " -D HAS_BE";
+					params += " -D HAS_SIZE_9";
+					params += " -D HAS_SDP";
+					params += " -D HAS_CONFLICT_BUG";
+					params += " -D HAS_SRST_OVER_CE";
+					params += " -D HAS_ASYNC_RESET";
+				} else if (family == "xc4v") {
+					params += " -lib +/xilinx/xilinx-lutram-xcv.txt";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+					params += " -D HAS_BE";
+					params += " -D HAS_SDP";
+					params += " -D HAS_CASCADE";
+					params += " -D HAS_MIXWIDTH";
+					params += " -D HAS_ASYNC_RESET"; // XXX check me
+				} else if (family == "xc5v") {
+					params += " -lib +/xilinx/xilinx-lutram-xc5v.txt";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+					params += " -D HAS_BE";
+					params += " -D HAS_SIZE_36";
+					params += " -D HAS_SDP";
+					params += " -D HAS_CASCADE";
+					params += " -D HAS_MIXWIDTH";
+					params += " -D HAS_ASYNC_RESET"; // XXX check me
+				} else if (family == "xc6v" || family == "xc7") {
+					params += " -lib +/xilinx/xilinx-lutram-xc5v.txt";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+					params += " -D HAS_BE";
+					params += " -D HAS_SIZE_36";
+					params += " -D HAS_SDP";
+					params += " -D HAS_CONFLICT_BUG";
+					params += " -D HAS_CASCADE";
+					params += " -D HAS_MIXWIDTH";
+					params += " -D HAS_MIXWIDTH_SDP";
+					params += " -D HAS_ASYNC_RESET"; // XXX check me
+				} else if (family == "xcu" || family == "xcup") {
+					params += " -lib +/xilinx/xilinx-lutram-xc5v.txt";
+					params += " -D ULTRASCALE";
+					params += " -lib +/xilinx/xilinx-bram-xc2v.txt";
+					params += " -D HAS_BE";
+					params += " -D HAS_SIZE_36";
+					params += " -D HAS_SDP";
+					params += " -D HAS_CONFLICT_BUG"; // XXX check me
+					params += " -D HAS_CASCADE";
+					params += " -D HAS_MIXWIDTH";
+					params += " -D HAS_MIXWIDTH_SDP";
+					params += " -D HAS_ASYNC_RESET"; // XXX check me
+					params += " -D HAS_ADDRCE";
+					if (family == "xcup") {
+						params += " -lib +/xilinx/xilinx-uram.txt";
+					}
+				}
+				if (!uram)
+					params += " -no-auto-huge";
+			}
+			run("memory_libmap" + params);
+		}
+
 		if (check_label("map_uram", "(only if '-uram')")) {
 			if (help_mode) {
 				run("memory_bram -rules +/xilinx/{family}_urams.txt");
