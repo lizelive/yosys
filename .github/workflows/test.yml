@@ -1,0 +1,309 @@
+name: Build and run tests
+
+on:
+  schedule:
+    - cron: '39 1 * * *'
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ master ]
+  
+jobs:
+  test-linux:
+    runs-on: ${{ matrix.os.id }}
+    strategy:
+      matrix:
+        os:
+          - { id: ubuntu-20.04, name: focal }
+        compiler:
+          - 'clang-12'
+          - 'clang-11'
+          - 'gcc-11'
+          - 'gcc-10'
+        cpp_std:
+          - 'c++11'
+          - 'c++14'
+          - 'c++17'
+          - 'c++20'
+        include:
+          # Limit the older compilers to C++11 mode
+          - os: { id: ubuntu-18.04, name: bionic }
+            compiler: 'clang-3.9'
+            cpp_std: 'c++11'
+          - os: { id: ubuntu-18.04, name: bionic }
+            compiler: 'gcc-4.8'
+            cpp_std: 'c++11'
+      fail-fast: false
+    steps:
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install gperf build-essential bison flex libreadline-dev gawk tcl-dev libffi-dev git graphviz xdot pkg-config python python3 libboost-system-dev libboost-python-dev libboost-filesystem-dev zlib1g-dev
+
+      - name: Setup GCC
+        if: startsWith(matrix.compiler, 'gcc')
+        shell: bash
+        run: |
+          CXX=${CC/#gcc/g++}
+          sudo apt-add-repository ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install $CC $CXX
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+        env:
+          CC: ${{ matrix.compiler }}
+
+      - name: Setup Clang
+        if: startsWith(matrix.compiler, 'clang')
+        shell: bash
+        run: |
+          wget https://apt.llvm.org/llvm-snapshot.gpg.key
+          sudo apt-key add llvm-snapshot.gpg.key
+          rm llvm-snapshot.gpg.key
+          sudo apt-add-repository "deb https://apt.llvm.org/${{ matrix.os.name }}/ llvm-toolchain-${{ matrix.os.name }} main"
+          sudo apt-get update
+          CXX=${CC/#clang/clang++}
+          sudo apt-get install $CC $CXX
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+        env:
+          CC: ${{ matrix.compiler }}
+
+      - name: Runtime environment
+        shell: bash
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+          echo "procs=$(nproc)" >> $GITHUB_ENV
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          $CC --version
+          $CXX --version
+
+      - name: Checkout Yosys
+        uses: actions/checkout@v2
+
+      - name: Get iverilog
+        shell: bash
+        run: |
+          git clone https://github.com/steveicarus/iverilog.git
+
+      - name: Cache iverilog
+        id: cache-iverilog
+        uses: actions/cache@v2
+        with:
+          path: .local/
+          key: ${{ matrix.os.id }}-${{ hashFiles('iverilog/.git/refs/heads/master') }}
+
+      - name: Build iverilog
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/.local/
+          cd iverilog
+          autoconf
+          CC=gcc CXX=g++ ./configure --prefix=$GITHUB_WORKSPACE/.local
+          make -j${{ env.procs }}
+          make install
+
+      - name: Build yosys (gcc-4.8)
+        if: matrix.compiler == 'gcc-4.8'
+        shell: bash
+        run: |
+          make config-${{ matrix.compiler }}
+          make -j${{ env.procs }} CCXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+
+      - name: Build yosys
+        if: matrix.compiler != 'gcc-4.8'
+        shell: bash
+        run: |
+          make config-${CC%%-*}
+          make -j${{ env.procs }} CCXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j${{ env.procs }} test CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+  test-macos:
+    runs-on: ${{ matrix.os.id }}
+    strategy:
+      matrix:
+        os:
+          - { id: macos-11, name: 'Big Sur' }
+        cpp_std:
+          - 'c++11'
+          - 'c++17'
+      fail-fast: false
+    steps:
+      - name: Install Dependencies
+        run: |
+          brew install bison flex gawk libffi pkg-config bash
+
+      - name: Runtime environment
+        shell: bash
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+          echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          cc --version
+
+      - name: Checkout Yosys
+        uses: actions/checkout@v2
+
+      - name: Get iverilog
+        shell: bash
+        run: |
+          git clone https://github.com/steveicarus/iverilog.git
+
+      - name: Cache iverilog
+        id: cache-iverilog
+        uses: actions/cache@v2
+        with:
+          path: .local/
+          key: ${{ matrix.os.id }}-${{ hashFiles('iverilog/.git/refs/heads/master') }}
+
+      - name: Build iverilog
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/.local/
+          cd iverilog
+          autoconf
+          CC=gcc CXX=g++ ./configure --prefix=$GITHUB_WORKSPACE/.local/
+          make -j${{ env.procs }}
+          make install
+
+      - name: Build yosys
+        shell: bash
+        run: |
+          make config-clang
+          make -j${{ env.procs }} CXXSTD=${{ matrix.cpp_std }} CC=cc CXX=cc LD=cc
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j${{ env.procs }} test CXXSTD=${{ matrix.cpp_std }} CC=cc CXX=cc LD=cc
+  test-macos-homebrew:
+    runs-on: ${{ matrix.os.id }}
+    strategy:
+      matrix:
+        os:
+          - { id: macos-10.15, name: Catalina }
+        cpp_std:
+          - 'c++17'
+        compiler:
+          - gcc
+      fail-fast: false
+    steps:
+      - name: Install Dependencies
+        run: |
+          brew install bison flex gawk libffi pkg-config bash
+
+      - name: Runtime environment
+        shell: bash
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
+          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+          echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
+
+      - name: Setup compiler
+        shell: bash
+        run: |
+          brew install ${{ matrix.compiler }}
+          CC=${COMPILER/@/-}
+          CXX=${CC/#gcc/g++}
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+        env:
+          COMPILER: ${{ matrix.compiler }}
+
+      - name: Tool versions
+        shell: bash
+        run: |
+          $CC --version
+          $CXX --version
+
+      - name: Checkout Yosys
+        uses: actions/checkout@v2
+
+      - name: Get iverilog
+        shell: bash
+        run: |
+          git clone https://github.com/steveicarus/iverilog.git
+
+      - name: Cache iverilog
+        id: cache-iverilog-homebrew
+        uses: actions/cache@v2
+        with:
+          path: .local/
+          key: ${{ matrix.os.id }}-homebrew-${{ hashFiles('iverilog/.git/refs/heads/master') }}
+
+      - name: Build iverilog
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/.local
+          cd iverilog
+          autoconf
+          CC=gcc CXX=g++ ./configure --prefix=$GITHUB_WORKSPACE/.local
+          make -j${{ env.procs }}
+          make install
+
+      - name: Build yosys
+        shell: bash
+        run: |
+          make config-gcc
+          make -j${{ env.procs }} CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+
+      - name: Run tests
+        shell: bash
+        run: |
+          make -j${{ env.procs }} test CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+  yosys-vcxsrc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache sources
+        id: cache-sources
+        uses: actions/cache@v2
+        with:
+          path: .
+          key: cache-yosys
+      - name: Build
+        run: make vcxsrc YOSYS_VER=latest
+      - uses: actions/upload-artifact@v2
+        with:
+          name: vcxsrc
+          path: yosys-win32-vcxsrc-latest.zip
+  test-vs:
+    runs-on: windows-latest
+    needs: yosys-vcxsrc
+    steps:  
+      - uses: actions/download-artifact@v2
+        with:
+          name: vcxsrc
+          path: .
+      - name: unzip
+        run: unzip yosys-win32-vcxsrc-latest.zip
+      - name: setup-msbuild
+        uses: microsoft/setup-msbuild@v1
+      - name: MSBuild
+        working-directory: yosys-win32-vcxsrc-latest
+        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.17763.0
