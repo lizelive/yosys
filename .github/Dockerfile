@@ -7,4 +7,4 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 	graphviz xdot pkg-config python3 libboost-system-dev \
 	libboost-python-dev libboost-filesystem-dev zlib1g-dev \
     iverilog \
-&& echo "deps install finished"
+&& echo "installed os desp"
