@@ -1,0 +1,9 @@
+name: build
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    container: ghcr.io/${{ github.repository }}:devenv-latest
+  - name: hello
+    run: echo "hello world"
