@@ -1,51 +1,55 @@
-ARG IMAGE="python:3-slim-buster"
+ARG IMAGE="debian:stable-slim"
 
 #---
 
 FROM $IMAGE AS base
 
-RUN apt-get update -qq \
- && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
-    ca-certificates \
-    clang \
-    curl \
-    libffi-dev \
-    libreadline-dev \
-    tcl-dev \
-    graphviz \
-    xdot \
- && apt-get autoclean && apt-get clean && apt-get -y autoremove \
- && update-ca-certificates \
- && rm -rf /var/lib/apt/lists
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+   apt-get update && export DEBIAN_FRONTEND=noninteractive \
+   && apt-get -y install --no-install-recommends \
+   ca-certificates \
+   clang \
+   curl \
+   libffi-dev \
+   libreadline-dev \
+   tcl-dev \
+   graphviz \
+   xdot \
+   && echo "installed os deps"
+
+#---
+FROM base as dev
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+   apt-get update && export DEBIAN_FRONTEND=noninteractive \
+   && apt-get -y install --no-install-recommends \
+   build-essential clang bison flex \
+   libreadline-dev gawk tcl-dev libffi-dev git \
+   graphviz xdot pkg-config python3 libboost-system-dev \
+   libboost-python-dev libboost-filesystem-dev zlib1g-dev \
+   iverilog ccache \
+   && echo "installed os deps"
+
 
 #---
 
-FROM base AS build
-
-RUN apt-get update -qq \
- && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
-    bison \
-    flex \
-    gawk \
-    gcc \
-    git \
-    iverilog \
-    pkg-config \
- && apt-get autoclean && apt-get clean && apt-get -y autoremove \
- && rm -rf /var/lib/apt/lists
+FROM dev AS build
 
 COPY . /yosys
 
 ENV PREFIX /opt/yosys
+ENV CCACHE_DIR /tmp/ccache
 
-RUN cd /yosys \
- && make \
- && make install \
- && make test
+RUN --mount=type=cache,target=${CCACHE_DIR} \
+   cd /yosys \
+   && export MAKEFLAGS='-j$(nproc)' \
+   && ccache make \
+   && make install \
+   && make test
 
 #---
 
-FROM base
+FROM base as cli
 
 COPY --from=build /opt/yosys /opt/yosys
 
