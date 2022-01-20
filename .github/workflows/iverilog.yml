@@ -1,0 +1,43 @@
+name: Build iverilog from source
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 1 * * *'
+
+jobs:
+    runs-on: ${{ matrix.os.id }}
+    strategy:
+      matrix:
+        os:
+          - { runs-on: ubuntu-20.04, id: linux }
+  build:
+    runs-on: ${{ matrix.os.runs-on }}
+    steps:
+      - name: checkout iverilog
+        uses: actions/checkout@v2
+        with:
+        # Repository name with owner. For example, actions/checkout
+        # Default: ${{ github.repository }}
+        repository: https://github.com/steveicarus/iverilog.git
+
+      - name: Cache iverilog
+        id: cache-iverilog
+        uses: actions/cache@v2
+        with:
+          path: $GITHUB_WORKSPACE/.local/
+          key: ${{ matrix.os.id }}-${{ hashFiles('.git/refs/heads/master') }}
+
+      - name: Build iverilog
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          autoconf
+          CC=gcc CXX=g++ ./configure --prefix=$GITHUB_WORKSPACE/.local
+          make -j$(nproc)
+          make install
+      - uses: actions/upload-artifact@v2
+        if: steps.cache-iverilog.outputs.cache-hit != 'true'
+        with:
+          name: iverilog-${{ matrix.os.id }}
+          path: $GITHUB_WORKSPACE/.local/

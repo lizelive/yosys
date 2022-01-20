@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
    tcl-dev \
    graphviz \
    xdot \
-   && echo "installed os deps"
+   && echo "installed base deps"
 
 #---
 FROM base as dev
@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
    graphviz xdot pkg-config python3 libboost-system-dev \
    libboost-python-dev libboost-filesystem-dev zlib1g-dev \
    iverilog ccache \
-   && echo "installed os deps"
+   && echo "installed dev deps"
 
 
 #---
@@ -44,8 +44,7 @@ RUN --mount=type=cache,target=${CCACHE_DIR} \
    cd /yosys \
    && export MAKEFLAGS='-j$(nproc)' \
    && ccache make \
-   && make install \
-   && make test
+   && make install
 
 #---
 
