@@ -4,8 +4,7 @@ ARG IMAGE="debian:stable-slim"
 
 FROM $IMAGE AS base
 
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-   apt-get update && export DEBIAN_FRONTEND=noninteractive \
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
    && apt-get -y install --no-install-recommends \
    ca-certificates \
    clang \
@@ -20,8 +19,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 #---
 FROM base as dev
 
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
-   apt-get update && export DEBIAN_FRONTEND=noninteractive \
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
    && apt-get -y install --no-install-recommends \
    build-essential clang bison flex \
    libreadline-dev gawk tcl-dev libffi-dev git \
@@ -40,23 +38,18 @@ COPY . /src
 ENV PREFIX /opt/yosys
 ENV CCACHE_DIR /tmp/ccache
 
-RUN --mount=type=cache,target=${CCACHE_DIR} \
-   cd /src && ccache -s\
-   && ln -s $(which ccache) /usr/local/bin/gcc \
-   && ln -s $(which ccache) /usr/local/bin/g++ \
-   && ln -s $(which ccache) /usr/local/bin/cc \
-   && ln -s $(which ccache) /usr/local/bin/c++ \
-   && ln -s $(which ccache) /usr/local/bin/clang \
-   && ln -s $(which ccache) /usr/local/bin/clang++ \
-   && make \
+RUN --mount=type=cache,target=/tmp/ccache \
+   cd /src && ccache -sz\
+   && export MAKEFLAGS='-j$(nproc)' \
+   && make ENABLE_CCACHE=1 \
    && make install \
-   ccache -s
+   && ccache -s
 
 #---
 
 FROM base as cli
 
-COPY --from=build /opt/yosys /opt/yosys
+COPY --from=build ${PREFIX} /opt/yosys
 
 ENV PATH /opt/yosys/bin:$PATH
 
