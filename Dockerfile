@@ -43,7 +43,13 @@ ENV CCACHE_DIR /tmp/ccache
 RUN --mount=type=cache,target=${CCACHE_DIR} \
    cd /yosys \
    && export MAKEFLAGS='-j$(nproc)' \
-   && ccache make \
+   && ln -s ccache /usr/local/bin/gcc \
+   && ln -s ccache /usr/local/bin/g++ \
+   && ln -s ccache /usr/local/bin/cc \
+   && ln -s ccache /usr/local/bin/c++ \
+   && ln -s ccache /usr/local/bin/clang \
+   && ln -s ccache /usr/local/bin/clang++ \
+   && make \
    && make install
 
 #---
