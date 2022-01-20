@@ -35,22 +35,23 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 
 FROM dev AS build
 
-COPY . /yosys
+COPY . /src
 
 ENV PREFIX /opt/yosys
 ENV CCACHE_DIR /tmp/ccache
 
 RUN --mount=type=cache,target=${CCACHE_DIR} \
-   cd /yosys \
+   cd /src && ccache -s\
    && export MAKEFLAGS='-j$(nproc)' \
-   && ln -s ccache /usr/local/bin/gcc \
-   && ln -s ccache /usr/local/bin/g++ \
-   && ln -s ccache /usr/local/bin/cc \
-   && ln -s ccache /usr/local/bin/c++ \
-   && ln -s ccache /usr/local/bin/clang \
-   && ln -s ccache /usr/local/bin/clang++ \
+   && ln -s $(which ccache) /usr/local/bin/gcc \
+   && ln -s $(which ccache) /usr/local/bin/g++ \
+   && ln -s $(which ccache) /usr/local/bin/cc \
+   && ln -s $(which ccache) /usr/local/bin/c++ \
+   && ln -s $(which ccache) /usr/local/bin/clang \
+   && ln -s $(which ccache) /usr/local/bin/clang++ \
    && make \
-   && make install
+   && make install \
+   ccache -s
 
 #---
 
