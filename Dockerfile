@@ -40,7 +40,7 @@ ENV CCACHE_DIR /tmp/ccache
 
 RUN --mount=type=cache,target=/tmp/ccache \
    cd /src && ccache -sz\
-   && export MAKEFLAGS='-j$(nproc)' \
+   # && export MAKEFLAGS='-j$(nproc)' \
    && make ENABLE_CCACHE=1 \
    && make install \
    && ccache -s
