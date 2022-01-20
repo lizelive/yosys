@@ -1,4 +1,4 @@
-ARG IMAGE="debian:stable-slim"
+ARG IMAGE="ubuntu:20.04"
 
 #---
 
