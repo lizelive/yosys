@@ -6,12 +6,11 @@ on:
     - cron: '19 1 * * *'
 
 jobs:
-  runs-on: ${{ matrix.os.id }}
-  strategy:
-    matrix:
-      os:
-        - { runs-on: ubuntu-20.04, id: linux }
   build:
+    strategy:
+      matrix:
+        os:
+          - { on: ubuntu-20.04, id: linux }
     runs-on: ${{ matrix.os.runs-on }}
     steps:
       - name: checkout iverilog
