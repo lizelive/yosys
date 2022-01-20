@@ -1,4 +1,4 @@
-ARG IMAGE="python:3-slim-buster"
+ARG IMAGE="ubuntu:20.04
 
 #---
 
