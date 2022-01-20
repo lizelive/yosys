@@ -42,7 +42,6 @@ ENV CCACHE_DIR /tmp/ccache
 
 RUN --mount=type=cache,target=${CCACHE_DIR} \
    cd /src && ccache -s\
-   && export MAKEFLAGS='-j$(nproc)' \
    && ln -s $(which ccache) /usr/local/bin/gcc \
    && ln -s $(which ccache) /usr/local/bin/g++ \
    && ln -s $(which ccache) /usr/local/bin/cc \
