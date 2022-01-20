@@ -49,7 +49,7 @@ RUN --mount=type=cache,target=/tmp/ccache \
 
 FROM base as cli
 
-COPY --from=build ${PREFIX} /opt/yosys
+COPY --from=build /opt/yosys /opt/yosys
 
 ENV PATH /opt/yosys/bin:$PATH
 
