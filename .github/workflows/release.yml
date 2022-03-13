@@ -1,0 +1,27 @@
+name: C/C++ CI
+
+on:
+  push:
+    tags:
+      - 'yosys-*'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container:
+      
+    steps:
+    - uses: actions/checkout@v2
+    - name: build
+      run: make -j$(nproc)
+    - uses: olegtarasov/get-tag@v2.1
+      id: parseTag
+      with:
+        tagRegex: "yosys-(?<version>.*)"  
+    - name: Create a Release
+      uses: elgohr/Github-Release-Action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        args: release ${{ steps.parseTag.outputs.version }}
